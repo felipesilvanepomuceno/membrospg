@@ -1,119 +1,40 @@
-import { createClient } from '@supabase/supabase-js';
+// src/lib/supabase.ts
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const url = import.meta.env.VITE_SUPABASE_URL as string | undefined
+const key = import.meta.env.VITE_SUPABASE_KEY as string | undefined
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables');
+// Se existir env => cria o client real
+let real: SupabaseClient | null = null
+if (url && key) {
+  real = createClient(url, key)
+} else {
+  console.warn('Supabase DESATIVADO (variáveis ausentes). Usando stub para evitar quebra.')
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// --- STUB SEGURO (não quebra a app) ---
+const chain = {
+  // métodos encadeáveis comuns
+  eq() { return this },
+  order() { return this },
+  // retornos assíncronos “inofensivos”
+  async select() { return { data: [], error: null } },
+  async insert() { return { data: null, error: null } },
+  async upsert() { return { data: null, error: null } },
+  async update() { return { data: null, error: null } },
+  async delete() { return { data: null, error: null } },
+  async single() { return { data: null, error: null } },
+}
+const stub = {
+  from() { return chain },
+  auth: {
+    async getUser() { return { data: { user: null }, error: null } },
+    onAuthStateChange() {
+      return { data: { subscription: { unsubscribe() {} } }, error: null }
+    },
+  },
+} as unknown as SupabaseClient
+// ---------------------------------------
 
-export type Database = {
-  public: {
-    Tables: {
-      profiles: {
-        Row: {
-          id: string;
-          full_name: string;
-          avatar_url: string | null;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          id: string;
-          full_name: string;
-          avatar_url?: string | null;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Update: {
-          id?: string;
-          full_name?: string;
-          avatar_url?: string | null;
-          created_at?: string;
-          updated_at?: string;
-        };
-      };
-      modules: {
-        Row: {
-          id: string;
-          title: string;
-          description: string;
-          order_index: number;
-          created_at: string;
-        };
-      };
-      lessons: {
-        Row: {
-          id: string;
-          module_id: string;
-          title: string;
-          description: string;
-          content_type: string;
-          content_url: string;
-          content_text: string | null;
-          order_index: number;
-          duration_minutes: number | null;
-          created_at: string;
-        };
-      };
-      user_progress: {
-        Row: {
-          id: string;
-          user_id: string;
-          lesson_id: string;
-          completed: boolean;
-          completed_at: string | null;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          id?: string;
-          user_id: string;
-          lesson_id: string;
-          completed?: boolean;
-          completed_at?: string | null;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Update: {
-          completed?: boolean;
-          completed_at?: string | null;
-          updated_at?: string;
-        };
-      };
-      extra_recipes: {
-        Row: {
-          id: string;
-          title: string;
-          description: string;
-          content_type: string;
-          content_url: string;
-          category: string;
-          created_at: string;
-        };
-      };
-      support_tickets: {
-        Row: {
-          id: string;
-          user_id: string;
-          subject: string;
-          message: string;
-          status: string;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          id?: string;
-          user_id: string;
-          subject: string;
-          message: string;
-          status?: string;
-          created_at?: string;
-          updated_at?: string;
-        };
-      };
-    };
-  };
-};
+export const supabase: SupabaseClient = (real ?? stub)
+export const hasSupabase = !!real
